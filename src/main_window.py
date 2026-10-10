@@ -407,6 +407,16 @@ class MainWindow(QMainWindow):
         self._chk_activate_minecraft_on_spawn = QCheckBox(
             "🎮 Tuo Minecraft eteen kun pestit spawnaavat (vain oikeasta logi-eventistä)"
         )
+        self._chk_move_minecraft_on_spawn = QCheckBox(
+    "🎮 Siirrä Minecraft toiselle ruudulle kun pestit spawnaavat"
+    )
+        self._chk_move_minecraft_on_spawn.setChecked(True)
+
+        self._cmb_minecraft_move_mode = QComboBox()
+        self._cmb_minecraft_move_mode.addItem("Vaihda nykyinen ↔ toinen (1 ↔ 2)", "swap")
+        self._cmb_minecraft_move_mode.addItem("Siirrä aina ruudulle 1", "to_1")
+        self._cmb_minecraft_move_mode.addItem("Siirrä aina ruudulle 2", "to_2")
+        self._cmb_minecraft_move_mode.addItem("Siirrä aina sille ruudulle jossa Minecraft ei ole", "to_other")
         self._chk_activate_minecraft_on_spawn.setChecked(True)
 
         self._spin_pest_cooldown_m = QSpinBox(); self._spin_pest_cooldown_m.setRange(0, 10)
@@ -523,7 +533,8 @@ class MainWindow(QMainWindow):
         )
         pest_tip.setWordWrap(True)
         pest_tip.setStyleSheet("padding:10px; background:#2a1a0c; color:#ffd9a8; border-radius:8px;")
-
+        f.addRow("", self._chk_move_minecraft_on_spawn)
+        f.addRow("Ruutuvaihdon tapa:", self._cmb_minecraft_move_mode)
         f.addRow("Tila:", self._lbl_pest_state)
         f.addRow("Cooldown:", self._lbl_pest_remaining)
         f.addRow("Edistyminen:", self._progress_pest)
@@ -729,6 +740,13 @@ class MainWindow(QMainWindow):
     def _load_ui_from_config(self) -> None:
         c = self._config
         # Logi & Tunnistus
+        self._chk_move_minecraft_on_spawn.setChecked(
+    bool(getattr(c, "move_minecraft_on_pest_spawn", True))
+    )
+        mode = getattr(c, "minecraft_move_mode", "swap")
+        idx = self._cmb_minecraft_move_mode.findData(mode)
+        if idx >= 0:
+            self._cmb_minecraft_move_mode.setCurrentIndex(idx)
         self._spin_interval.setValue(c.detection_interval_ms)
         self._chk_detect.setChecked(c.detection_enabled)
         self._chk_log.setChecked(bool(getattr(c, "log_enabled", True)))
@@ -820,6 +838,8 @@ class MainWindow(QMainWindow):
         c.log_enabled = self._chk_log.isChecked()
         c.log_file_path = self._ed_logpath.text().strip()
         c.alternate_direction = self._chk_alt_dir.isChecked()
+        c.move_minecraft_on_pest_spawn = self._chk_move_minecraft_on_spawn.isChecked()
+        c.minecraft_move_mode = self._cmb_minecraft_move_mode.currentData() or "swap"
         c.initial_direction = (
             DIRECTION_RIGHT if self._radio_initial_right.isChecked() else DIRECTION_LEFT
         )
@@ -1104,6 +1124,7 @@ class MainWindow(QMainWindow):
         """Yritä tuoda Minecraft-ikkuna etualalle."""
         if os.name != "nt" or win32gui is None or win32con is None:
             return False
+    
 
         hwnd = self._find_minecraft_window()
         if not hwnd:
